@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeopardy!</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #060CE9;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 3em;
+            margin: 20px 0;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.5);
+        }
+
+        .score {
+            font-size: 2em;
+            margin-bottom: 30px;
+            background: rgba(0,0,0,0.3);
+            padding: 15px 40px;
+            border-radius: 10px;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 5px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .category {
+            background: #060CE9;
+            border: 3px solid black;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: bold;
+            text-transform: uppercase;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .clue {
+            background: #060CE9;
+            border: 3px solid black;
+            padding: 40px 10px;
+            text-align: center;
+            font-size: 2.5em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #D69F4C;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .clue:hover:not(.answered) {
+            background: #0808B3;
+            transform: scale(1.05);
+        }
+
+        .clue.answered {
+            background: #060CE9;
+            color: #060CE9;
+            cursor: default;
+            border-color: #060CE9;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #060CE9;
+            padding: 40px;
+            border-radius: 10px;
+            max-width: 800px;
+            width: 90%;
+            text-align: center;
+            border: 5px solid black;
+        }
+
+        .question-text {
+            font-size: 1.8em;
+            margin-bottom: 30px;
+            line-height: 1.4;
+        }
+
+        .answer-input {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.3em;
+            border: 3px solid black;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .submit-btn {
+            background: #D69F4C;
+            color: black;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.3em;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+
+        .submit-btn:hover {
+            background: #F0B35C;
+            transform: scale(1.05);
+        }
+
+        .result {
+            font-size: 1.8em;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        .result.correct {
+            color: #4CAF50;
+        }
+
+        .result.incorrect {
+            color: #f44336;
+        }
+
+        .close-btn {
+            margin-top: 20px;
+            background: #666;
+            color: white;
+            border: none;
+            padding: 10px 30px;
+            font-size: 1.1em;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        .close-btn:hover {
+            background: #888;
+        }
+    </style>
+</head>
+<body>
+    <h1>JEOPARDY!</h1>
+    <div class="score">Score: $<span id="score">0</span></div>
+    <div class="board" id="board"></div>
+
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <div class="question-text" id="question"></div>
+            <input type="text" class="answer-input" id="answerInput" placeholder="What is...">
+            <br>
+            <button class="submit-btn" onclick="checkAnswer()">Submit Answer</button>
+            <div class="result" id="result"></div>
+            <button class="close-btn" id="closeBtn" onclick="closeModal()" style="display:none;">Continue</button>
+        </div>
+    </div>
+
+    <script>
+        const categories = {
+            "Indie Hits": [
+                {value: 200, question: "This blocky indie game developed by Mojang Studios eventually became a world-wide sensation.", answer: "Minecraft"},
+                {value: 400, question: "This highly anticipated indie game developed by Team Cherry is a sequel to the hit game 'Hollow Knight,' and broke online services because of insanely high demand.", answer: "Silksong"},
+                {value: 600, question: "This indie horror game became one of the largest franchises in the entire world, and one of the first mascot horror games.", answer: "Five Nights at Freddy's"},
+                {value: 800, question: "This small indie video game developed by only one person has been pushed to it's absolute limits. Players have beaten insane challenges and created some crazy things as well.", answer: "Geometry Dash"},
+                {value: 1000, question: "This top-down farming game became a large hit world wide, being streamed by many creators of all genres.", answer: "Stardew Valley"}
+            ],
+            "The Bee's Knees": [
+                {value: 200, question: "This well known family of bees isn't very friendly and doesn't pollinate like most. A lot of people know it for stinging you for no reason.", answer: "wasp"},
+                {value: 400, question: "This bee loves to tunnel through wood and won't sting you at all. They are pretty annoying though.", answer: "Carpenter Bee"},
+                {value: 600, question: "This common kind of bee is most likely the most well known bee and is found almost everywhere.", answer: "Honey bee"},
+                {value: 800, question: "This bee looks very similar to the average honey bee, however it doesn't sting and is attracted to the salt in human sweat.", answer: "Sweat bee"},
+                {value: 1000, question: "This gargantuan bee is four times larger than most bees and was once thought to be extinct.", answer: "Wallace's giant bee"}
+            ],
+            "Film & Television": [
+                {value: 200, question: "This 2013 film featured giant mechs that would fight against large monsters named Kaiju.", answer: "Pacific Rim"},
+                {value: 400, question: "This movie directed by Charles Tait was most likely the first feature length movie ever seen. It followed the story of a gang led by Ned Kelly as they were being pursued by authorities.", answer: "The Story of the Kelly Gang"},
+                {value: 600, question: "Wil Wheaton starred in the first few seasons of this hit TV show as the character Wesley Crusher.", answer: "Star Trek: The Next Generation"},
+                {value: 800, question: "This hit horror show created by Eric Kripke featured two young adults hunting down supernatural forces.", answer: "Supernatural"},
+                {value: 1000, question: "This hit movie was an adaptation of the hit video game 'Minecraft,' and had fans jumping out of their seats and yelling 'CHICKEN JOCKEY!' along with Jack Black.", answer: "A Minecraft Movie"}
+            ],
+            "Literature": [
+                {value: 200, question: "This collection of German folk tales and fairy tales was compiled by Wilhelm Grimm, and first published in 1812.", answer: "Grimm's Fairy Tales"},
+                {value: 400, question: "'You get a book! You get a book! You get a book!' For 15 years, starting in 1996, this daytime talk show megastar's book club recommended a total of 70 books leading to total sales of over 55 million copies.", answer: "Oprah Winfrey"},
+                {value: 600, question: "A young boy takes a train to the North Pole on Christmas Eve in this classic 1985 children's book by Chris Van Allsburg.", answer: "The Polar Express"},
+                {value: 800, question: "This 1897 novel sees Abraham Van Helsing chasing down the title character in his namesake castle in modern-day Romania.", answer: "Dracula"},
+                {value: 1000, question: "Literally the study of whales, 'Cetology' is the title of the 32nd chapter of what lengthy American novel?", answer: "Moby Dick"}
+            ],
+            "Science": [
+                {value: 200, question: "This 45 letter long disease is well known around America for having a pain stakingly long name, but no one can really pronounce it well.", answer: "Pneumonoultramicroscopicsilicovolcanoconiosis"},
+                {value: 400, question: "The Periodic Table of Elements contains this number of elements, and is also the number for Oganesson.", answer: "118"},
+                {value: 600, question: "This gas is converted to oxygen by trees for humans to breathe, and we breathe it out for trees to breathe.", answer: "Carbon Dioxide"},
+                {value: 800, question: "This tiny little organ in your body basically self-destructs when it reaches its expiration date.", answer: "Appendix"},
+                {value: 1000, question: "All planets in our solar system (except for Earth) are named after these ancient deities.", answer: "Roman Gods"}
+            ],
+            "Sports": [
+                {value: 200, question: "This American sport features tackling, an oblongated ball, and surprisingly heavy helmets.", answer: "American Football"},
+                {value: 400, question: "This sport is similar to its indoor counterpart, but is instead played on a field instead of ice like normal, so most players need to get better adjusted.", answer: "Field Hockey"},
+                {value: 600, question: "This sport features heavy bats, and white and red balls. If watching, you'll hear the phrase 'Going, going, gone!'", answer: "Baseball"},
+                {value: 800, question: "This combat sport is played on a large platform with ropes wrapped around, where players must pin the other to the floor to win.", answer: "Boxing"},
+                {value: 1000, question: "This sport is very popular on the hit video game 'Wii Sports,' and is most notable for people yelling 'strike!' when you knock down all of your targets.", answer: "Bowling"}
+            ]
+        };
+
+        let score = 0;
+        let currentClue = null;
+        let selectedCategories = [];
+
+        function shuffleArray(arr) {
+            const newArr = [...arr];
+            for (let i = newArr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+            }
+            return newArr;
+        }
+
+        function initializeGame() {
+            const categoryNames = Object.keys(categories);
+            const shuffled = shuffleArray(categoryNames);
+            selectedCategories = shuffled.slice(0, 6);
+
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+
+            selectedCategories.forEach(catName => {
+                const catDiv = document.createElement('div');
+                catDiv.className = 'category';
+                catDiv.textContent = catName;
+                board.appendChild(catDiv);
+            });
+
+            for (let i = 0; i < 5; i++) {
+                selectedCategories.forEach(catName => {
+                    const clue = categories[catName][i];
+                    const clueDiv = document.createElement('div');
+                    clueDiv.className = 'clue';
+                    clueDiv.textContent = '$' + clue.value;
+                    clueDiv.onclick = () => openClue(clue, clueDiv);
+                    board.appendChild(clueDiv);
+                });
+            }
+        }
+
+        function openClue(clue, element) {
+            if (element.classList.contains('answered')) return;
+            
+            currentClue = {clue: clue, element: element};
+            document.getElementById('question').textContent = clue.question;
+            document.getElementById('answerInput').value = '';
+            document.getElementById('result').textContent = '';
+            document.getElementById('result').className = 'result';
+            document.getElementById('closeBtn').style.display = 'none';
+            document.getElementById('modal').classList.add('active');
+            document.getElementById('answerInput').focus();
+        }
+
+        function normalizeAnswer(answer) {
+            return answer.toLowerCase()
+                .replace(/[^\w\s]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function checkAnswer() {
+            const userAnswer = document.getElementById('answerInput').value;
+            const correctAnswer = currentClue.clue.answer;
+            const resultDiv = document.getElementById('result');
+            
+            const normalized = normalizeAnswer(userAnswer);
+            const correctNormalized = normalizeAnswer(correctAnswer);
+
+            if (normalized === correctNormalized || correctNormalized.includes(normalized) || normalized.includes(correctNormalized)) {
+                score += currentClue.clue.value;
+                document.getElementById('score').textContent = score;
+                resultDiv.textContent = 'Correct!';
+                resultDiv.className = 'result correct';
+            } else {
+                resultDiv.textContent = 'Incorrect. The answer was: ' + correctAnswer;
+                resultDiv.className = 'result incorrect';
+            }
+
+            currentClue.element.classList.add('answered');
+            document.getElementById('closeBtn').style.display = 'block';
+            document.getElementById('answerInput').style.display = 'none';
+            document.querySelector('.submit-btn').style.display = 'none';
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+            document.getElementById('answerInput').style.display = 'block';
+            document.querySelector('.submit-btn').style.display = 'inline-block';
+        }
+
+        document.getElementById('answerInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                checkAnswer();
+            }
+        });
+
+        initializeGame();
+    </script>
+</body>
+</html>
